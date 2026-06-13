@@ -14,8 +14,7 @@ export function SocketProvider({ children }) {
   const [connected, setConnected] = useState(false);
 
   useEffect(() => {
-    const socketUrl =
-      import.meta.env.VITE_SOCKET_URL || "http://localhost:5000";
+    const socketUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
     const token = localStorage.getItem("token");
 
     if (!token) return;
