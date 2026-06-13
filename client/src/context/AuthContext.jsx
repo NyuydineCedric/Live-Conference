@@ -1,12 +1,18 @@
 // context/AuthContext.jsx
-import { createContext, useContext, useState, useCallback } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useEffect,
+} from "react";
 import api from "../services/api";
 
 const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true); // ✅ start true to prevent premature redirect
   const [error, setError] = useState(null);
 
   const loadProfileImage = useCallback((userId) => {
@@ -91,11 +97,14 @@ export function AuthProvider({ children }) {
         localStorage.removeItem(`profileImage_${user.id}`);
       }
       setUser((prev) => ({ ...prev, profileImage: imageBase64 || null }));
-      // Optional: send to backend
-      // await api.put("/api/auth/profile-image", { profileImage: imageBase64 });
     },
     [user],
   );
+
+  // ✅ Call checkAuth when the app starts
+  useEffect(() => {
+    checkAuth();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const value = {
     user,
