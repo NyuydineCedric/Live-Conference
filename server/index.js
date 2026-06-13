@@ -14,7 +14,10 @@ const app = express()
 const server = createServer(app)
 const io = new Server(server, {
   cors: {
-    origin: process.env.CLIENT_URL || 'http://localhost:3000',
+        origin: [
+      process.env.CLIENT_URL || 'http://localhost:3000',
+      'https://live-conference-98c49j4em-nyuydinecedrics-projects.vercel.app', // your exact Vercel URL
+    ],
     methods: ['GET', 'POST'],
     credentials: true,
   },

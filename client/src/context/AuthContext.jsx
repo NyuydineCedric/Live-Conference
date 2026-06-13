@@ -101,7 +101,6 @@ export function AuthProvider({ children }) {
     [user],
   );
 
-  // ✅ Call checkAuth when the app starts
   useEffect(() => {
     checkAuth();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
