@@ -1,17 +1,11 @@
-import { useNavigate } from "react-router-dom";
+// components/ProtectedRoute.jsx
+import { Navigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { useEffect } from "react";
 
 export function ProtectedRoute({ children }) {
   const { isAuthenticated, loading } = useAuth();
-  const navigate = useNavigate();
 
-  useEffect(() => {
-    if (!loading && !isAuthenticated) {
-      navigate("/login");
-    }
-  }, [isAuthenticated, loading, navigate]);
-
+  // Block ALL decisions until auth check completes
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-slate-950">
@@ -20,7 +14,12 @@ export function ProtectedRoute({ children }) {
     );
   }
 
-  return isAuthenticated ? children : null;
+  // Synchronous — no useEffect, no frame delay, no re-render race
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return children;
 }
 
 export default ProtectedRoute;
