@@ -78,11 +78,7 @@ const S = {
     background: "#16213e",
     aspectRatio: "16/9",
   },
-  videoElement: {
-    width: "100%",
-    height: "100%",
-    objectFit: "cover",
-  },
+  videoElement: { width: "100%", height: "100%", objectFit: "cover" },
   fallbackAvatar: {
     width: "100%",
     height: "100%",
@@ -152,9 +148,6 @@ const S = {
     border: "none",
     background: "#dc3545",
     cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
   },
   rightPanel: {
     width: 300,
@@ -230,9 +223,6 @@ const S = {
     background: "#4f6ef7",
     border: "none",
     cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
   },
   participantsList: { flex: 1, overflowY: "auto", padding: "12px" },
   participantItem: {
@@ -277,8 +267,6 @@ const S = {
   },
 };
 
-// ======================== NEW COMPONENT ========================
-// Shows profile image if available, otherwise fallback to gradient + initials
 function ParticipantAvatar({ participant }) {
   const [imgError, setImgError] = useState(false);
   const profileImage = participant.profileImage;
@@ -290,7 +278,6 @@ function ParticipantAvatar({ participant }) {
       .join("")
       .slice(0, 2)
       .toUpperCase() || "??";
-
   if (profileImage && !imgError) {
     return (
       <img
@@ -301,7 +288,6 @@ function ParticipantAvatar({ participant }) {
       />
     );
   }
-
   return (
     <div style={S.fallbackAvatar}>
       <div style={S.fallbackInitials}>{initials}</div>
@@ -309,13 +295,12 @@ function ParticipantAvatar({ participant }) {
     </div>
   );
 }
-// ================================================================
 
 export default function MeetingPage() {
   const { meetingId } = useParams();
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
-  const { socket, emit, on, off, connected } = useSocket();
+  const { socket, connected, emit, on, off } = useSocket();
 
   const [meeting, setMeeting] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -332,7 +317,6 @@ export default function MeetingPage() {
   const [mySocketId, setMySocketId] = useState(null);
   const hasJoinedRef = useRef(false);
   const pendingCandidates = useRef(new Map());
-
   const localVideoRef = useRef(null);
 
   const copyMeetingLink = async () => {
@@ -342,7 +326,6 @@ export default function MeetingPage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // Helper: queue ICE candidates until remote description is set
   const addIceCandidateQueued = useCallback(async (peerId, candidate) => {
     const pc = webrtcService.getPeerConnection(peerId);
     if (!pc) return;
@@ -358,13 +341,12 @@ export default function MeetingPage() {
   const processQueuedCandidates = useCallback(async (peerId) => {
     const candidates = pendingCandidates.current.get(peerId);
     if (candidates?.length) {
-      for (const candidate of candidates)
-        await webrtcService.addIceCandidate(peerId, candidate);
+      for (const c of candidates)
+        await webrtcService.addIceCandidate(peerId, c);
       pendingCandidates.current.delete(peerId);
     }
   }, []);
 
-  // Remote stream callback
   useEffect(() => {
     webrtcService.onRemoteStream((peerId, stream) => {
       console.log("📹 Remote stream from", peerId);
@@ -372,16 +354,12 @@ export default function MeetingPage() {
     });
   }, []);
 
-  // WebRTC signaling handlers (unchanged)
   const handleOffer = useCallback(
     async ({ from, offer }) => {
       console.log("📞 Offer from", from);
       let pc = webrtcService.getPeerConnection(from);
       if (!pc) pc = webrtcService.createPeerConnection(from, socket, meetingId);
-      if (pc.signalingState !== "stable") {
-        console.log(`Ignoring offer, state=${pc.signalingState}`);
-        return;
-      }
+      if (pc.signalingState !== "stable") return;
       const answer = await webrtcService.handleOffer(from, offer);
       if (answer) emit("answer", { to: from, answer, meetingId });
       await processQueuedCandidates(from);
@@ -405,7 +383,6 @@ export default function MeetingPage() {
     [addIceCandidateQueued],
   );
 
-  // Participant management with profile image
   const handleParticipantJoined = useCallback(
     async ({ participantId, userName, profileImage }) => {
       if (participantId === socket?.id) return;
@@ -424,16 +401,13 @@ export default function MeetingPage() {
           socket,
           meetingId,
         );
-      if (
-        mySocketId &&
-        mySocketId < participantId &&
-        pc.signalingState === "stable"
-      ) {
+      // Always create an offer (both sides will try, WebRTC handles the conflict)
+      if (pc.signalingState === "stable") {
         const offer = await webrtcService.createOffer(participantId);
         if (offer) emit("offer", { to: participantId, offer, meetingId });
       }
     },
-    [socket, meetingId, emit, mySocketId],
+    [socket, meetingId, emit],
   );
 
   const handleParticipantLeft = useCallback(({ participantId }) => {
@@ -471,20 +445,18 @@ export default function MeetingPage() {
             socket,
             meetingId,
           );
-        if (
-          mySocketId &&
-          mySocketId < p.socketId &&
-          pc.signalingState === "stable"
-        ) {
+        if (pc.signalingState === "stable") {
           const offer = await webrtcService.createOffer(p.socketId);
           if (offer) emit("offer", { to: p.socketId, offer, meetingId });
         }
       }
     },
-    [socket, meetingId, emit, mySocketId],
+    [socket, meetingId, emit],
   );
 
+  // Real‑time chat event
   const handleCommentAdded = useCallback((data) => {
+    console.log("💬 New comment:", data);
     setComments((prev) => [...prev, data]);
   }, []);
 
@@ -516,7 +488,7 @@ export default function MeetingPage() {
             if (localVideoRef.current) localVideoRef.current.srcObject = stream;
           }
         } catch (e) {
-          console.warn("Camera error:", e);
+          console.warn("Camera not available");
         }
         const commentsData = await meetingsService.getComments(meetingId);
         if (mounted && commentsData.comments)
@@ -533,7 +505,7 @@ export default function MeetingPage() {
     };
   }, [meetingId, isAuthenticated, navigate]);
 
-  // Socket connection – include profile image when joining
+  // Socket connection and event registration
   useEffect(() => {
     if (loading || !socket || !connected || hasJoinedRef.current) return;
     hasJoinedRef.current = true;
@@ -542,7 +514,7 @@ export default function MeetingPage() {
       meetingId,
       userId: user?.id,
       userName: user?.fullName,
-      profileImage: user?.profileImage, // <-- send profile image
+      profileImage: user?.profileImage,
     });
     on("offer", handleOffer);
     on("answer", handleAnswer);
@@ -604,11 +576,8 @@ export default function MeetingPage() {
 
   const handleToggleAudio = () => {
     const newMuted = !isMuted;
-    if (localStream) {
-      localStream
-        .getAudioTracks()
-        .forEach((track) => (track.enabled = !newMuted));
-    }
+    if (localStream)
+      localStream.getAudioTracks().forEach((t) => (t.enabled = !newMuted));
     setIsMuted(newMuted);
     emit("participant-muted", {
       meetingId,
@@ -619,15 +588,11 @@ export default function MeetingPage() {
 
   const handleToggleVideo = () => {
     const newVideoOn = !isVideoOn;
-    if (localStream) {
-      localStream
-        .getVideoTracks()
-        .forEach((track) => (track.enabled = newVideoOn));
-    }
+    if (localStream)
+      localStream.getVideoTracks().forEach((t) => (t.enabled = newVideoOn));
     setIsVideoOn(newVideoOn);
   };
 
-  // Build participant list including profile images
   const allParticipants = [
     {
       id: "local",
@@ -685,8 +650,7 @@ export default function MeetingPage() {
           <div style={S.videoGrid}>
             {allParticipants.map((p) => {
               const hasVideo =
-                p.stream &&
-                p.stream.active &&
+                p.stream?.active &&
                 p.stream
                   .getVideoTracks?.()
                   .some((t) => t.readyState === "live");
